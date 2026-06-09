@@ -17,25 +17,23 @@ One run of `sudo ./scripts/run_all.sh` produces the chart above:
 - **Cumulative techniques** — start from the OS default (`kernel-udp`) and a
   naive userspace pipeline, then add one technique at a time. Each rung is a real
   jump; kernel-bypass + lockless ring + batching together give the headline ~30×.
-- **Hugepage size** — 4 KB vs 2 MB vs 1 GB pages on the optimized pipeline.
-  Bigger pages mean fewer [TLB](https://en.wikipedia.org/wiki/Translation_lookaside_buffer "Translation Lookaside Buffer — a cache of virtual→physical address lookups. Bigger pages cover more memory per entry, so fewer misses.")
-  misses, so higher throughput.
-- **Zero-copy vs copy** — this sweeps the size of the buffer each packet copies,
-  from 256 B to 64 KB. (64 KB is a single packet's max here — an mbuf's data room
-  is a 16-bit field, so 1 MB packets aren't possible.) Copying 256 B is basically
-  free, so the two are equal; copying 64 KB *per packet* is expensive, so
-  zero-copy pulls far ahead. The bigger the buffer, the more skipping the copy
-  matters.
 - **Batching** — throughput vs burst size; handling 32 packets per trip through
   the loop amortizes the fixed per-packet overhead. Rises, then plateaus.
 - **Lockless ring vs mutex** — the mutex hurts most at burst 1 (a lock per
   packet); the gap shrinks as batching amortizes it.
+- **Optimal config per payload** — per-packet time vs payload size, with one line
+  for each **page size × copy-mode** (`4k`/`2m` × copy/zero-copy). **For any data
+  size, the lowest line is the best config.** At small payloads a copy is free and
+  page size dominates (fewer [TLB](https://en.wikipedia.org/wiki/Translation_lookaside_buffer "Translation Lookaside Buffer — a cache of virtual→physical address lookups. Bigger pages cover more memory per entry, so fewer misses.")
+  misses with 2 MB pages); at large payloads the copy buffer is what's expensive,
+  so zero-copy pulls far ahead. (Payload tops at 64 KB — an mbuf's data room is a
+  16-bit field, so 1 MB packets aren't possible.)
 
 In plain terms: most of the speedup comes from **not going through the kernel for
 every packet** and **not paying overhead per packet** (the lockless ring and
 batching). Zero-copy and bigger hugepages help too, but only when conditions are
-right — zero-copy when packets are large, hugepages when the data set is big.
-That's why each is measured on its own.
+right — zero-copy when packets are large, hugepages when the data set is big — so
+the last panel lets you pick the best config for whatever data size you have.
 
 > [!NOTE]
 > Cumulative ablation is order-dependent: whichever technique removes the current
