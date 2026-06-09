@@ -48,18 +48,14 @@ echo "config,packets,mpps,gbps,ns_per_pkt" | tee "$OUT"
 
 med_udp   # OS-default reference
 
-# Cumulative ladder — ALL PINNED. Poll-mode needs pinned cores (unpinned thrashes),
-# so pinning is a prerequisite, not a ladder rung; each step adds one technique.
-med_dpdk 0-naive     2m --malloc --locked-queue --burst 1 --copy
-med_dpdk 1-mempool   2m --locked-queue --burst 1 --copy
-med_dpdk 2-lockless  2m --burst 1 --copy
-med_dpdk 3-batching  2m --copy
-med_dpdk 4-full      2m
+# Cumulative ladder — all cores pinned (poll-mode needs that). Each step adds one
+# technique. Ends at batching: at 256B zero-copy adds nothing, so it's folded in.
+med_dpdk naive          2m --malloc --locked-queue --burst 1 --copy
+med_dpdk +mempool       2m --locked-queue --burst 1 --copy
+med_dpdk +lockless-ring 2m --burst 1 --copy
+med_dpdk +batching-x32  2m
 
-# Pinning on its own: full vs full-but-unpinned (the poll-mode cliff).
-med_dpdk full-unpinned 2m --no-pin
-
-# Page-size sweep on full DPDK.
+# Page size on the optimized pipeline (one number each).
 med_dpdk page-4k 4k
 med_dpdk page-2m 2m
 if mountpoint -q /mnt/huge1G 2>/dev/null; then
