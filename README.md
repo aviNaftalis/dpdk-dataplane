@@ -17,19 +17,25 @@ One run of `sudo ./scripts/run_all.sh` produces the chart above:
 - **Cumulative techniques** — start from the OS default (`kernel-udp`) and a
   naive userspace pipeline, then add one technique at a time. Each rung is a real
   jump; kernel-bypass + lockless ring + batching together give the headline ~30×.
-- **Hugepage size** — 4 KB vs 2 MB vs 1 GB pages on the optimized pipeline (fewer
-  TLB misses → higher throughput).
-- **Zero-copy vs copy** — flat at small packets (a copy is ~free), but the gap
-  grows fast with payload size: it's a *per-byte* technique.
-- **Batching** — throughput vs burst size; amortizing per-packet overhead rises,
-  then plateaus.
+- **Hugepage size** — 4 KB vs 2 MB vs 1 GB pages on the optimized pipeline.
+  Bigger pages mean fewer [TLB](https://en.wikipedia.org/wiki/Translation_lookaside_buffer "Translation Lookaside Buffer — a cache of virtual→physical address lookups. Bigger pages cover more memory per entry, so fewer misses.")
+  misses, so higher throughput.
+- **Zero-copy vs copy** — this sweeps the size of the buffer each packet copies,
+  from 256 B to 64 KB. (64 KB is a single packet's max here — an mbuf's data room
+  is a 16-bit field, so 1 MB packets aren't possible.) Copying 256 B is basically
+  free, so the two are equal; copying 64 KB *per packet* is expensive, so
+  zero-copy pulls far ahead. The bigger the buffer, the more skipping the copy
+  matters.
+- **Batching** — throughput vs burst size; handling 32 packets per trip through
+  the loop amortizes the fixed per-packet overhead. Rises, then plateaus.
 - **Lockless ring vs mutex** — the mutex hurts most at burst 1 (a lock per
   packet); the gap shrinks as batching amortizes it.
 
-Takeaway: **kernel bypass and avoiding per-packet overhead (lockless + batching)
-are the big wins; zero-copy and hugepages matter in their own regimes.** Each
-technique has a regime where it shines — that's the whole point of measuring them
-separately.
+In plain terms: most of the speedup comes from **not going through the kernel for
+every packet** and **not paying overhead per packet** (the lockless ring and
+batching). Zero-copy and bigger hugepages help too, but only when conditions are
+right — zero-copy when packets are large, hugepages when the data set is big.
+That's why each is measured on its own.
 
 > [!NOTE]
 > Cumulative ablation is order-dependent: whichever technique removes the current
@@ -52,8 +58,9 @@ sudo ./scripts/run_all.sh           # all sweeps -> results/dpdk_all.png
 
 ## How it's built
 
-`src/dpdk_pipeline.c` is a producer lcore → queue → consumer lcore. Every
-technique is a flag, so it can be turned off to isolate its effect:
+`src/dpdk_pipeline.c` is a producer [lcore](https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html "logical core — a DPDK worker thread pinned to one CPU core")
+→ queue → consumer lcore. Every technique is a flag, so it can be turned off to
+isolate its effect:
 
 - `--size N` — packet / copy-buffer size in bytes (up to ~64 KB)
 - `--burst N` — batch size (`1` = no batching)
@@ -63,8 +70,9 @@ technique is a flag, so it can be turned off to isolate its effect:
 - `--no-pin` — run the producer/consumer as floating OS threads instead of
   pinned DPDK lcores. Poll-mode threads that the scheduler can migrate or
   co-schedule onto one core collapse, so this shows why pinning is required.
-- **page size is an EAL choice, not an app flag** — the runner passes
-  `--no-huge` (4 KB), or `--huge-dir <2M|1G mount>` for 2 MB / 1 GB hugepages.
+- **page size is an [EAL](https://doc.dpdk.org/guides/prog_guide/env_abstraction_layer.html "Environment Abstraction Layer — DPDK's startup layer that sets up hugepages, cores, and devices")
+  choice, not an app flag** — the runner passes `--no-huge` (4 KB), or
+  `--huge-dir <2M|1G mount>` for 2 MB / 1 GB hugepages.
 
 `src/udp_bench.c` is the kernel UDP-loopback baseline (no DPDK).
 
