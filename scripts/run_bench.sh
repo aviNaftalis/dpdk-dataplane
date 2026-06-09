@@ -48,17 +48,24 @@ echo "config,packets,mpps,gbps,ns_per_pkt" | tee "$OUT"
 
 med_udp   # OS-default reference
 
-# cumulative build-up: each step removes one "disable" flag
-med_dpdk 0-naive        2m --malloc --locked-queue --burst 1 --copy --no-pin
-med_dpdk 1-mempool      2m --locked-queue --burst 1 --copy --no-pin
-med_dpdk 2-lockless     2m --burst 1 --copy --no-pin
-med_dpdk 3-batching     2m --copy --no-pin
-med_dpdk 4-zerocopy     2m --no-pin
-med_dpdk 5-pinned-full  2m
+# Cumulative ladder — ALL PINNED. Poll-mode needs pinned cores (unpinned thrashes),
+# so pinning is a prerequisite, not a ladder rung; each step adds one technique.
+med_dpdk 0-naive     2m --malloc --locked-queue --burst 1 --copy
+med_dpdk 1-mempool   2m --locked-queue --burst 1 --copy
+med_dpdk 2-lockless  2m --burst 1 --copy
+med_dpdk 3-batching  2m --copy
+med_dpdk 4-full      2m
 
-# page-size sweep on full DPDK
+# Pinning on its own: full vs full-but-unpinned (the poll-mode cliff).
+med_dpdk full-unpinned 2m --no-pin
+
+# Page-size sweep on full DPDK.
 med_dpdk page-4k 4k
 med_dpdk page-2m 2m
-med_dpdk page-1g 1g || echo "(page-1g skipped — reserve 1G hugepages first)"
+if mountpoint -q /mnt/huge1G 2>/dev/null; then
+    med_dpdk page-1g 1g
+else
+    echo "(page-1g skipped — no /mnt/huge1G; reserve 1G pages: sudo ./scripts/hugepages.sh 1g 4)"
+fi
 
 echo "wrote $OUT"
