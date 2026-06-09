@@ -50,7 +50,7 @@ sudo ./scripts/hugepages.sh 2m 1024
 ## Roadmap
 
 - [x] Setup: DPDK install + parametrized hugepages (4k/2m/1g)
-- [ ] Benchmark binary: kernel-UDP + naive + DPDK pipeline, technique toggles
-- [ ] Runner sweeps the matrix → CSV
-- [ ] Graphs: Mpps by technique, Mpps by page size, cycles/packet
+- [x] Benchmark binary: kernel-UDP + naive + DPDK pipeline, technique toggles
+- [x] Runner sweeps the matrix -> CSV
+- [x] Graphs: Mpps by technique, by page size, cycles/packet
 - [ ] Correctness test on the per-packet transform
