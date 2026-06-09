@@ -44,7 +44,7 @@ med_udp() {
     printf '%s\n' "${lines[@]}" | median | tee -a "$OUT"
 }
 
-echo "config,packets,mpps,gbps,ns_per_pkt" | tee "$OUT"
+echo "config,packets,mpps,gbps,ns_per_pkt,size" | tee "$OUT"
 
 med_udp   # OS-default reference
 

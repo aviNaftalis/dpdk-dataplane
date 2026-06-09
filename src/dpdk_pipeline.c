@@ -24,9 +24,8 @@
 #include <rte_mempool.h>
 #include <rte_ring.h>
 
-#define MAX_PKT 2048u
-#define POOL_SZ 16384u
-#define RING_SZ 4096u  // power of two
+#define MAX_PKT 65000u  // mbuf data room is uint16_t — cap a bit below 64 KB
+#define RING_SZ 4096u   // power of two
 
 static struct {
     unsigned burst, size;
@@ -161,7 +160,11 @@ int main(int argc, char **argv) {
     parse_args(argc, argv);
 
     if (!cfg.use_malloc) {
-        pool = rte_pktmbuf_pool_create("pool", POOL_SZ, 256, 0, RTE_MBUF_DEFAULT_BUF_SIZE,
+        const unsigned room = RTE_PKTMBUF_HEADROOM + cfg.size;  // fits uint16_t (size <= 65000)
+        unsigned pool_n = (256u << 20) / (room + 256);          // ~256 MB pool budget
+        if (pool_n > 16384) pool_n = 16384;
+        if (pool_n < 1024) pool_n = 1024;
+        pool = rte_pktmbuf_pool_create("pool", pool_n, 256, 0, (uint16_t)room,
                                        (int)rte_socket_id());
         if (!pool) rte_exit(EXIT_FAILURE, "mempool create failed\n");
     }
@@ -195,7 +198,7 @@ int main(int argc, char **argv) {
     const double mpps = consumed / secs / 1e6;
     const double gbps = consumed * (double)cfg.size * 8.0 / secs / 1e9;
     const double ns_pkt = consumed ? secs * 1e9 / consumed : 0;
-    printf("%s,%llu,%.3f,%.3f,%.1f\n", cfg.label, (unsigned long long)consumed, mpps, gbps,
-           ns_pkt);
+    printf("%s,%llu,%.3f,%.3f,%.1f,%u\n", cfg.label, (unsigned long long)consumed, mpps, gbps,
+           ns_pkt, cfg.size);
     return 0;
 }
