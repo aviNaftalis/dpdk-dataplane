@@ -17,7 +17,7 @@ run() {  # $1=out $2=label  $3..=flags  (median row appended to $1)
     local lines=()
     for i in $(seq 1 "$REPS"); do
         # shellcheck disable=SC2046
-        lines+=("$("$PIPE" -l 0-2 --no-pci --huge-dir /mnt/huge2M --file-prefix "${label}_${i}_$$" -- \
+        lines+=("$("$PIPE" -l 0-2 --no-pci --log-level '*:error' --huge-dir /mnt/huge2M --file-prefix "${label}_${i}_$$" -- \
             --label "$label" --packets "$PKTS" --size "$SIZE" "$@" | tail -1)")
     done
     printf '%s\n' "${lines[@]}" | median >> "$out"

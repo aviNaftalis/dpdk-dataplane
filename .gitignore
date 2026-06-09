@@ -1,4 +1,2 @@
 build/
-results/*.csv
-results/*.png
 *.o

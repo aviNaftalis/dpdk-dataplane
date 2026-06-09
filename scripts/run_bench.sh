@@ -30,7 +30,7 @@ med_dpdk() {  # $1=label $2=page  $3..=app flags
     local lines=()
     for i in $(seq 1 "$REPS"); do
         # shellcheck disable=SC2046
-        lines+=("$("$PIPE" -l 0-2 --no-pci $(eal_page "$page") --file-prefix "${label}_$i" -- \
+        lines+=("$("$PIPE" -l 0-2 --no-pci --log-level '*:error' $(eal_page "$page") --file-prefix "${label}_$i" -- \
             --label "$label" --packets "$PKTS" --size "$SIZE" "$@" | tail -1)")
     done
     printf '%s\n' "${lines[@]}" | median | tee -a "$OUT"

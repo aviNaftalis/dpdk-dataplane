@@ -18,7 +18,7 @@ run() {  # $1=label $2=size  $3..=flags
     [ "$pkts" -lt 20000 ] && pkts=20000
     local lines=()
     for i in $(seq 1 "$REPS"); do
-        lines+=("$("$PIPE" -l 0-2 --no-pci --huge-dir /mnt/huge2M --file-prefix "${label}_${size}_$i" -- \
+        lines+=("$("$PIPE" -l 0-2 --no-pci --log-level '*:error' --huge-dir /mnt/huge2M --file-prefix "${label}_${size}_$i" -- \
             --label "$label" --packets "$pkts" --size "$size" "$@" | tail -1)")
     done
     printf '%s\n' "${lines[@]}" | median | tee -a "$OUT"
