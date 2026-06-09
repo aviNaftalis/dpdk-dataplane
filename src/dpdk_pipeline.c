@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
     const double mpps = consumed / secs / 1e6;
     const double gbps = consumed * (double)cfg.size * 8.0 / secs / 1e9;
     const double ns_pkt = consumed ? secs * 1e9 / consumed : 0;
-    printf("%s,%llu,%.3f,%.3f,%.1f,%u\n", cfg.label, (unsigned long long)consumed, mpps, gbps,
-           ns_pkt, cfg.size);
+    printf("%s,%llu,%.3f,%.3f,%.1f,%u,%u\n", cfg.label, (unsigned long long)consumed, mpps, gbps,
+           ns_pkt, cfg.size, cfg.burst);
     return 0;
 }

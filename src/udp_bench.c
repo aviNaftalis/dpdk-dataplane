@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 
     const double mpps = g_packets / secs / 1e6;
     const double gbps = g_packets * (double)g_size * 8.0 / secs / 1e9;
-    printf("%s,%llu,%.3f,%.3f,%.1f,%u\n", label, (unsigned long long)g_packets, mpps, gbps, 0.0,
-           g_size);
+    printf("%s,%llu,%.3f,%.3f,%.1f,%u,%u\n", label, (unsigned long long)g_packets, mpps, gbps, 0.0,
+           g_size, 1u);
     return 0;
 }
