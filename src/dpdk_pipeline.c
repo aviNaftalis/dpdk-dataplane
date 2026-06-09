@@ -43,7 +43,7 @@ static void *lq[RING_SZ];
 static uint64_t lq_head, lq_tail;
 static pthread_mutex_t lq_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static volatile uint64_t produced, consumed, consume_cycles, checksum;
+static volatile uint64_t produced, consumed, checksum;
 
 static inline void *alloc_pkt(void) {
     return cfg.use_malloc ? malloc(cfg.size) : rte_pktmbuf_alloc(pool);
@@ -102,29 +102,28 @@ static int consumer(void *arg) {
     (void)arg;
     void *batch[256];
     uint8_t scratch[MAX_PKT];
-    uint64_t done = 0, sum = 0, cyc = 0;
+    uint64_t done = 0, sum = 0;
     while (done < cfg.packets) {
         unsigned n = q_dequeue(batch, cfg.burst);
         if (!n) continue;  // ring empty; producer will fill
-        const uint64_t t0 = rte_get_tsc_cycles();
         for (unsigned i = 0; i < n; i++) {
             uint8_t *d = pkt_data(batch[i]);
             if (cfg.copy) { memcpy(scratch, d, cfg.size); d = scratch; }
-            d[0]--;                      // "decrement TTL" — the per-packet work
+            d[0]--;            // "decrement TTL" — the per-packet work
             sum += d[0] + d[1];
             free_pkt(batch[i]);
         }
-        cyc += rte_get_tsc_cycles() - t0;
         done += n;
     }
     consumed = done;
-    consume_cycles = cyc;
     checksum = sum;
     return 0;
 }
 
-static void *pth_producer(void *a) { producer(a); return NULL; }
-static void *pth_consumer(void *a) { consumer(a); return NULL; }
+// --no-pin path: register the float threads so they keep the mempool per-core
+// cache — otherwise this would measure "no cache" instead of "no affinity".
+static void *pth_producer(void *a) { rte_thread_register(); producer(a); return NULL; }
+static void *pth_consumer(void *a) { rte_thread_register(); consumer(a); return NULL; }
 
 static void parse_args(int argc, char **argv) {
     static struct option o[] = {
@@ -195,8 +194,8 @@ int main(int argc, char **argv) {
     const double secs = (double)(rte_get_tsc_cycles() - start) / hz;
     const double mpps = consumed / secs / 1e6;
     const double gbps = consumed * (double)cfg.size * 8.0 / secs / 1e9;
-    const double cyc_pkt = consumed ? (double)consume_cycles / consumed : 0;
+    const double ns_pkt = consumed ? secs * 1e9 / consumed : 0;
     printf("%s,%llu,%.3f,%.3f,%.1f\n", cfg.label, (unsigned long long)consumed, mpps, gbps,
-           cyc_pkt);
+           ns_pkt);
     return 0;
 }
