@@ -25,7 +25,8 @@ run() {  # $1=label $2=size  $3..=flags
 }
 
 echo "config,packets,mpps,gbps,ns_per_pkt,size,burst" | tee "$OUT"
-for sz in 256 1024 4096 16384 65000; do
+SIZES=${SIZES:-"256 1024 4096 16384 65000"}
+for sz in $SIZES; do
     run copy     "$sz" --copy   # consumer memcpy's the payload
     run zerocopy "$sz"          # consumer works in place
 done

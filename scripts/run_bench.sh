@@ -55,13 +55,14 @@ med_dpdk +mempool       2m --locked-queue --burst 1 --copy
 med_dpdk +lockless-ring 2m --burst 1 --copy
 med_dpdk +batching-x32  2m
 
-# Page size on the optimized pipeline (one number each).
-med_dpdk page-4k 4k
-med_dpdk page-2m 2m
-if mountpoint -q /mnt/huge1G 2>/dev/null; then
-    med_dpdk page-1g 1g
-else
-    echo "(page-1g skipped — no /mnt/huge1G; reserve 1G pages: sudo ./scripts/hugepages.sh 1g 4)"
-fi
+# Page size on the optimized pipeline (one number each). Tunable via PAGES.
+PAGES=${PAGES:-"4k 2m 1g"}
+for p in $PAGES; do
+    if [ "$p" = "1g" ] && ! mountpoint -q /mnt/huge1G 2>/dev/null; then
+        echo "(page-1g skipped — no /mnt/huge1G; reserve: sudo ./scripts/hugepages.sh 1g 4)"
+        continue
+    fi
+    med_dpdk "page-$p" "$p"
+done
 
 echo "wrote $OUT"

@@ -1,16 +1,12 @@
 # dpdk-dataplane
 
-**How to process packets ~30× faster than the kernel** — and a measurement of
-*what each technique actually buys you*.
+**How to process packets ~30× faster than the kernel.**
 
-Sending packets through the kernel network stack means a syscall and a copy per
-packet, plus interrupts and scheduler jitter. [DPDK](https://www.dpdk.org "Data Plane Development Kit — userspace poll-mode packet processing")
-bypasses all of that: a userspace **poll-mode** driver, **zero-copy** buffers,
-**hugepages**, **lockless rings**, **batching**, and **pinned cores**. This repo
-builds the same packet-processing pipeline every way — kernel sockets, a naive
-userspace version, and DPDK with each technique toggled — and benchmarks them.
-
-Runs on a plain Linux box or **WSL2 — no special hardware, no NIC, no VM.**
+The kernel does a syscall and a copy per packet. [DPDK](https://www.dpdk.org "Data Plane Development Kit — userspace poll-mode packet processing")
+bypasses that with a userspace poll-mode driver, zero-copy buffers, hugepages,
+lockless rings, batching, and pinned cores. This repo builds the same pipeline
+three ways — kernel sockets, naive userspace, and DPDK with each technique
+toggled — and benchmarks them.
 
 ## Results
 
@@ -56,11 +52,21 @@ sudo ./scripts/run_all.sh           # all sweeps -> results/dpdk_all.png
 
 ## How it's built
 
-- `src/dpdk_pipeline.c` — producer lcore → queue → consumer lcore. Flags toggle
-  each technique: `--malloc` (vs `rte_mempool`), `--locked-queue` (vs `rte_ring`),
-  `--burst N`, `--copy` (vs zero-copy), `--no-pin`; page size via EAL.
-- `src/udp_bench.c` — kernel UDP-loopback baseline (no DPDK).
-- `scripts/run_all.sh` → CSVs in `results/`; `results/plot_all.py` → the image.
+`src/dpdk_pipeline.c` is a producer lcore → queue → consumer lcore. Every
+technique is a flag, so it can be turned off to isolate its effect:
 
-Sibling repo: [rdma-matmul](https://github.com/aviNaftalis/rdma-matmul) — the same
-kernel-bypass idea applied to *remote memory* (RDMA) instead of packets.
+- `--size N` — packet / copy-buffer size in bytes (up to ~64 KB)
+- `--burst N` — batch size (`1` = no batching)
+- `--copy` — `memcpy` the payload (vs zero-copy, processed in place)
+- `--malloc` — `malloc`/`free` per packet (vs reusing `rte_mempool` mbufs)
+- `--locked-queue` — `std::mutex` + queue (vs lockless `rte_ring`)
+- `--no-pin` — run the producer/consumer as floating OS threads instead of
+  pinned DPDK lcores. Poll-mode threads that the scheduler can migrate or
+  co-schedule onto one core collapse, so this shows why pinning is required.
+- **page size is an EAL choice, not an app flag** — the runner passes
+  `--no-huge` (4 KB), or `--huge-dir <2M|1G mount>` for 2 MB / 1 GB hugepages.
+
+`src/udp_bench.c` is the kernel UDP-loopback baseline (no DPDK).
+
+The sweeps are tunable via env vars: `SIZE`/`SIZES` (packet & zero-copy sizes),
+`BURSTS` (batching), `PAGES` (hugepage sizes), `REPS`, `PKTS`.

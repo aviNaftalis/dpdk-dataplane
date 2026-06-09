@@ -30,7 +30,8 @@ run() {  # $1=out $2=label  $3..=flags  (median row appended to $1)
 
 # 4) batching: sweep burst size                     -> burst.csv
 echo "config,packets,mpps,gbps,ns_per_pkt,size,burst" > results/burst.csv
-for b in 1 2 4 8 16 32 64; do run results/burst.csv batching --burst "$b"; done
+BURSTS=${BURSTS:-"1 2 4 8 16 32 64"}
+for b in $BURSTS; do run results/burst.csv batching --burst "$b"; done
 
 # 5) lockless ring vs mutex, across burst size      -> lockless.csv
 echo "config,packets,mpps,gbps,ns_per_pkt,size,burst" > results/lockless.csv
