@@ -42,10 +42,10 @@ the last panel lets you pick the best config for whatever data size you have.
 ## Reproduce
 
 ```bash
-./scripts/setup.sh                  # install DPDK + tools (WSL2 is fine)
-sudo ./scripts/hugepages.sh 2m 1024 # reserve 2 GB of 2 MB hugepages
+./scripts/setup.sh
+sudo ./scripts/hugepages.sh 2m 1024
 make
-sudo ./scripts/run_all.sh           # all sweeps -> results/dpdk_all.png
+sudo ./scripts/run_all.sh
 ```
 
 > [!NOTE]
